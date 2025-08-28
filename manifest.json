@@ -1,0 +1,15 @@
+{
+  "name": "점심 메뉴 룰렛",
+  "short_name": "점심룰렛",
+  "description": "원하는 메뉴가 나올 때까지 돌려보세요! GSAP 감속 스핀·폭죽 팝업·색상 셔플 지원",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1221",
+  "theme_color": "#0f1221",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "썸네일.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "썸네일.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
