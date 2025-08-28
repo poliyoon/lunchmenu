@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>점심 메뉴 룰렛</title>
+  <!-- GSAP -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1221;
+      --card: #131731;
+      --muted: #9aa4b2;
+      --text: #eaf0ff;
+      --accent: #7aa2ff;
+      --accent-2: #a77dff;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 70% -10%, #21274a 0%, var(--bg) 60%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: min(1100px, 100%);
+      display: grid;
+      grid-template-columns: 1.2fr 0.9fr;
+      gap: 24px;
+    }
+    @media (max-width: 940px) {
+      .app { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .panel { padding: 20px; }
+    .title {
+      display:flex; align-items:center; gap:10px; margin-bottom:12px;
+      font-weight: 700; letter-spacing: .2px; font-size: 18px; color: #dfe7ff;
+    }
+    .sub { color: var(--muted); font-size: 13px; }
+
+    /* Wheel Area */
+    .stage { position: relative; aspect-ratio: 1/1; width: 100%; padding: 16px; }
+    .wheel-wrap { position: relative; width: 100%; height: 100%; display:grid; place-items:center; }
+    svg { width: 100%; height: 100%; overflow: visible; }
+
+    .pointer { position: absolute; top: clamp(22px, 5%, 36px); left: 50%; transform: translateX(-50%); width: clamp(14px, 2.2vw, 22px); }
+    .pointer svg { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+
+    .controls { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      appearance: none; border: none; cursor: pointer; padding: 10px 14px; border-radius: 12px; font-weight: 700;
+      background: linear-gradient(180deg, #6b8dff, #567bff);
+      color: white; box-shadow: 0 8px 20px rgba(86,123,255,.35);
+      transition: transform .06s ease, filter .2s ease; letter-spacing: .2px;
+    }
+    button:hover { filter: brightness(1.05); }
+    button:active { transform: translateY(1px); }
+    button.secondary { background: linear-gradient(180deg, #444b7a, #373e6a); box-shadow: 0 8px 20px rgba(0,0,0,.25); }
+    button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: var(--text); }
+    button[disabled] { opacity: .6; cursor: not-allowed; }
+
+    .result {
+      margin-top: 10px; font-size: clamp(18px, 2.4vw, 22px); font-weight: 800; letter-spacing: .3px;
+      background: linear-gradient(180deg, #ffffff, #cdd7ff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-align: center;
+    }
+
+    /* Menu Editor */
+    .editor { display:flex; flex-direction: column; gap: 14px; }
+    .row { display:flex; gap: 8px; }
+    .row input[type="text"] {
+      flex: 1; padding: 10px 12px; border-radius: 12px; outline: none; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04); color: var(--text);
+    }
+    .chips { display:flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      display:flex; align-items:center; gap:8px; padding: 8px 10px; border-radius: 999px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08); font-weight: 600; font-size: 13px; color: #e9efff;
+    }
+    .chip .x { width: 18px; height: 18px; display:grid; place-items:center; cursor:pointer; border-radius: 50%; background: rgba(0,0,0,0.25); }
+    .tiny { font-size: 12px; color: var(--muted); }
+
+    .footnote { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    /* Selected glow */
+    .glow { filter: drop-shadow(0 0 0px rgba(255,255,255,0)); }
+  
+    /* === Celebration Popup & Fireworks === */
+    .celebrate{position:fixed; inset:0; display:grid; place-items:center; background:rgba(6,10,28,.55); backdrop-filter: blur(3px); z-index:50; pointer-events:none; opacity:0; transition:opacity .28s ease;}
+    .celebrate.show{opacity:1; pointer-events:auto;}
+    #fx{position:absolute; inset:0; width:100%; height:100%;}
+    .popup{position:relative; z-index:2; width:min(92vw,520px); padding:22px 20px; border-radius:18px; text-align:center;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: 0 24px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .pop-title{font-size:14px; color:var(--muted); letter-spacing:.3px; margin-bottom:6px;}
+    .pop-result{font-weight:900; font-size:clamp(28px,6.2vw,46px); background:linear-gradient(180deg,#fff,#cdd7ff); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:12px;}
+    .pop-cta{display:flex; gap:8px; justify-content:center;}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Left: Wheel -->
+    <div class="card panel">
+      <div class="title">🍽️ 점심 메뉴 룰렛 <span class="sub">— GSAP 기반 가속/감속 애니메이션</span></div>
+      <div class="stage">
+        <div class="wheel-wrap">
+          <!-- Pointer (fixed) -->
+          <div class="pointer" aria-hidden="true">
+            <svg viewBox="0 0 40 50" width="100%" height="100%">
+              <defs>
+                <linearGradient id="pnt" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#ffce6b"/>
+                  <stop offset="100%" stop-color="#ff9b3d"/>
+                </linearGradient>
+              </defs>
+              <polygon points="20,32 36,6 4,6" fill="url(#pnt)" stroke="#cc7a23" stroke-width="1.5"/>
+                          </svg>
+          </div>
+
+          <!-- SVG Wheel -->
+          <svg id="svgRoot" viewBox="0 0 600 600" role="img" aria-label="점심 메뉴 룰렛">
+            <defs>
+              <filter id="shadowSoft" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000000" flood-opacity="0.35"/>
+              </filter>
+            </defs>
+            <g id="wheelGroup" filter="url(#shadowSoft)">
+              <!-- dynamic slices/text will be injected here -->
+            </g>
+            <!-- Rim -->
+            <circle cx="300" cy="300" r="245" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2.5"/>
+            <!-- Hub -->
+            <circle cx="300" cy="300" r="40" fill="#0f132a" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="spinBtn">🎲 돌리기</button>
+        <button class="secondary" id="shuffleBtn" title="색상 재배치">🎨 색상 셔플</button>
+        <button class="ghost" id="resetBtn">↺ 기본 메뉴</button>
+      </div>
+      <div class="result" id="result">원하는 메뉴가 나올 때까지 돌려보세요!</div>
+    </div>
+
+    <!-- Right: Menu Editor -->
+    <div class="card panel">
+      <div class="title">목록 편집 <span class="sub">— 항목을 추가·삭제하면 룰렛이 자동 갱신됩니다</span></div>
+      <div class="editor">
+        <div class="row">
+          <input id="itemInput" type="text" maxlength="18" placeholder="예) 김치찌개" />
+          <button id="addBtn">＋ 추가</button>
+        </div>
+        <div class="tiny">Tip: 엔터키로 빠르게 추가할 수 있어요. 항목은 2개 이상이어야 스핀이 가능합니다.</div>
+        <div class="chips" id="chipList" aria-live="polite"></div>
+        <div class="footnote">• 각 파이 조각의 <b>가운데</b>에 메뉴명이 배치됩니다.<br />• 룰렛은 높은 속도로 회전한 뒤 <b>서서히 감속</b>하며 선택 항목에서 멈춥니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Utility: Geometry on a 0° = TOP (12 o'clock) system ======
+    const TAU = Math.PI * 2;
+    const DEG = 180 / Math.PI;
+    const cx = 300, cy = 300, R = 240; // wheel radius
+
+    function polar(cx, cy, r, deg) {
+      const rad = (deg - 90) * Math.PI / 180; // rotate so 0° is top
+      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+    function arcPath(cx, cy, r, a0, a1) {
+      const p0 = polar(cx, cy, r, a0);
+      const p1 = polar(cx, cy, r, a1);
+      const largeArc = (a1 - a0) % 360 > 180 ? 1 : 0;
+      return `M ${cx} ${cy} L ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} 1 ${p1.x} ${p1.y} Z`;
+    }
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+    function mod(a, n){ return ((a % n) + n) % n; }
+
+    // ====== State ======
+    const wheelGroup = document.getElementById('wheelGroup');
+    const svgRoot = document.getElementById('svgRoot');
+    const spinBtn = document.getElementById('spinBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const resultEl = document.getElementById('result');
+    const chipList = document.getElementById('chipList');
+    const inputEl = document.getElementById('itemInput');
+    const addBtn = document.getElementById('addBtn');
+
+    let items = [
+      '비빔밥','김치찌개','제육볶음','돈까스','라면','국밥','피자','햄버거','파스타','김밥'
+    ];
+    let colorsSeed = Math.random();
+
+    let slices = []; // {label, start, end, mid}
+    let currentRotation = 0; // degrees
+    let spinning = false;
+
+    // ====== Color generator (distinct HSL with jitter) ======
+    function colorAt(i, n){
+      const hue = (360 * i / n + colorsSeed * 360) % 360;
+      const sat = 65 + 7 * Math.sin((i + colorsSeed) * 1.1);
+      const light = 55 + 7 * Math.cos((i + colorsSeed) * 0.9);
+      return `hsl(${hue.toFixed(0)} ${sat.toFixed(1)}% ${light.toFixed(1)}%)`;
+    }
+
+    // ====== Build Wheel ======
+    function buildWheel(){
+      wheelGroup.innerHTML = '';
+      slices = [];
+      const n = items.length;
+      const angle = 360 / n;
+
+      for (let i=0;i<n;i++){
+        const start = i * angle;
+        const end = (i+1) * angle;
+        const mid = start + angle/2;
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','slice');
+        g.dataset.index = i;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', arcPath(cx, cy, R, start, end));
+        path.setAttribute('fill', colorAt(i, n));
+        path.setAttribute('stroke', 'rgba(255,255,255,0.10)');
+        path.setAttribute('stroke-width', '1.25');
+        g.appendChild(path);
+
+        // label at radial center (60% of radius)
+        const labelPos = polar(cx, cy, R * 0.62, mid);
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', labelPos.x);
+        text.setAttribute('y', labelPos.y);
+        text.setAttribute('text-anchor','middle');
+        text.setAttribute('dominant-baseline','middle');
+        text.setAttribute('fill','#0b0f22');
+        text.setAttribute('style','font-weight:800; letter-spacing:.2px;');
+        // font size adapts to number of slices (min 10px)
+        const fs = clamp(22 - Math.max(0, n-8)*1.4, 10, 22);
+        text.setAttribute('font-size', fs);
+        text.textContent = items[i];
+        g.appendChild(text);
+
+        // optional subtle glow wrapper (used when selected)
+        const glow = document.createElementNS('http://www.w3.org/2000/svg','g');
+        glow.setAttribute('class','glow');
+        g.appendChild(glow);
+
+        wheelGroup.appendChild(g);
+        slices.push({ label: items[i], start, end, mid, g, path, text });
+      }
+    }
+
+    // ====== Chips (editor) ======
+    function renderChips(){
+      chipList.innerHTML = '';
+      items.forEach((name, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = `<span>${name}</span>`;
+        const x = document.createElement('div');
+        x.className = 'x';
+        x.innerHTML = '✕';
+        x.title = '삭제';
+        x.onclick = () => {
+          if (items.length <= 2) return; // require at least 2
+          items.splice(idx,1);
+          buildWheel(); renderChips();
+        };
+        chip.appendChild(x);
+        chipList.appendChild(chip);
+      });
+      spinBtn.disabled = items.length < 2 || spinning;
+    }
+
+    // ====== Spin Logic ======
+    function chooseIndex(){
+      return Math.floor(Math.random() * items.length);
+    }
+
+    function spin(){
+      if (spinning || items.length < 2) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      addBtn.disabled = true;
+      inputEl.disabled = true;
+
+      const idx = chooseIndex();
+      const target = slices[idx];
+
+      // Normalize current rotation to [0..360)
+      const norm = mod(currentRotation, 360);
+      // We want: finalRotation ≡ -target.mid (mod 360)
+      const baseToTarget = -target.mid - norm; // difference to align now
+      const spins = 5 + Math.floor(Math.random() * 4); // 5~8 full spins
+      const finalRotation = currentRotation + baseToTarget + spins * 360;
+
+      // Animate with GSAP deceleration
+      gsap.to(wheelGroup, {
+        rotation: finalRotation,
+        transformOrigin: '50% 50%',
+        duration: 4.8 + spins * 0.15,
+        ease: 'power3.out',
+        onUpdate: () => {},
+        onStart: () => {
+          // reset any previous highlight
+          slices.forEach(s => s.path.setAttribute('stroke-width','1.25'));
+          resultEl.textContent = '두구두구… 룰렛이 멈출 때까지!';
+        },
+        onComplete: () => {
+          currentRotation = finalRotation;
+          highlight(idx);
+          openCelebration(target.label);
+          spinning = false;
+          spinBtn.disabled = false;
+          addBtn.disabled = false;
+          inputEl.disabled = false;
+        }
+      });
+    }
+
+    function highlight(idx){
+      slices.forEach((s, i) => {
+        const sel = (i === idx);
+        s.path.setAttribute('stroke-width', sel ? '3.5' : '1.25');
+        s.path.setAttribute('stroke', sel ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.10)');
+        // subtle pulse
+        if (sel) {
+          gsap.fromTo(s.path, { scale: 1 }, { scale: 1.01, transformOrigin: '50% 50%', duration: 0.5, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+        }
+      });
+    }
+
+    // ====== Events ======
+    spinBtn.addEventListener('click', spin);
+    resetBtn.addEventListener('click', () => {
+      items = ['비빔밥','김치찌개','제육볶음','돈까스','라면','국밥','피자','햄버거','파스타','김밥'];
+      colorsSeed = Math.random();
+      buildWheel(); renderChips(); resultEl.textContent = '기본 메뉴로 초기화했습니다.';
+    });
+    shuffleBtn.addEventListener('click', () => {
+      colorsSeed = Math.random();
+      buildWheel();
+    });
+
+    addBtn.addEventListener('click', () => {
+      const v = inputEl.value.trim();
+      if (!v) return;
+      if (items.length >= 18) { alert('항목은 최대 18개까지 권장됩니다.'); return; }
+      items.push(v);
+      inputEl.value = '';
+      buildWheel(); renderChips();
+    });
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addBtn.click();
+    });
+
+    // ====== Celebration (Popup + Fireworks) ======
+    let fwTicker = null, fwInterval = null, fwParticles = [];
+
+    function openCelebration(text){
+      const celebrateEl = document.getElementById('celebrate');
+      const popText = document.getElementById('popText');
+      const popup = celebrateEl.querySelector('.popup');
+      const fx = document.getElementById('fx');
+
+      popText.textContent = text;
+      celebrateEl.classList.add('show');
+      resizeFx();
+
+      // popup entrance
+      gsap.fromTo(popup, { y:24, scale:.96, opacity:0 }, { y:0, scale:1, opacity:1, duration:.45, ease:'power2.out' });
+      gsap.fromTo(popText, { scale:.9 }, { scale:1.02, duration:.6, ease:'elastic.out(1,0.6)' });
+
+      startFireworks();
+
+      celebrateEl.querySelector('#closePop').onclick = closeCelebration;
+      celebrateEl.querySelector('#againBtn').onclick = () => { closeCelebration(); setTimeout(spin, 220); };
+      window.addEventListener('resize', resizeFx, { once:true });
+    }
+
+    function resizeFx(){
+      const fx = document.getElementById('fx');
+      if (!fx) return;
+      const dpr = window.devicePixelRatio || 1;
+      fx.width = Math.floor(window.innerWidth * dpr);
+      fx.height = Math.floor(window.innerHeight * dpr);
+      const ctx = fx.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+
+    function startFireworks(){
+      const fx = document.getElementById('fx');
+      const ctx = fx.getContext('2d');
+      fwParticles = [];
+
+      function spawnBurst(x, y, hueBase){
+        const count = gsap.utils.random(36, 60, 1);
+        for(let i=0;i<count;i++){
+          const ang = Math.random() * TAU;
+          const spd = gsap.utils.random(2.6, 7.2);
+          fwParticles.push({
+            x, y,
+            vx: Math.cos(ang)*spd,
+            vy: Math.sin(ang)*spd,
+            g: .12,
+            f: 0.985,
+            r: gsap.utils.random(1.4, 2.6),
+            a: 1,
+            h: (hueBase + i*(360/count)) % 360
+          });
+        }
+      }
+
+      function tick(){
+        ctx.clearRect(0,0,fx.width,fx.height);
+        for(let i=fwParticles.length-1;i>=0;i--){
+          const p = fwParticles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= p.f; p.vy = p.vy * p.f + p.g;
+          p.a *= 0.975;
+          if(p.a < .06){ fwParticles.splice(i,1); continue; }
+          ctx.globalAlpha = p.a;
+          ctx.fillStyle = `hsl(${p.h} 95% 60%)`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        if (fwParticles.length === 0 && !fwInterval){ stopTicker(); }
+      }
+
+      function startTicker(){ if(!fwTicker){ fwTicker = tick; gsap.ticker.add(fwTicker); } }
+      function stopTicker(){ if(fwTicker){ gsap.ticker.remove(fwTicker); fwTicker = null; } }
+
+      startTicker();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      fwInterval = setInterval(() => {
+        const x = gsap.utils.random(vw*0.15, vw*0.85);
+        const y = gsap.utils.random(vh*0.18, vh*0.55);
+        spawnBurst(x, y, gsap.utils.random(0,360));
+      }, 220);
+
+      setTimeout(() => { clearInterval(fwInterval); fwInterval = null; }, 2400);
+    }
+
+    function closeCelebration(){
+      const celebrateEl = document.getElementById('celebrate');
+      if(!celebrateEl) return;
+      gsap.to(celebrateEl, { opacity:0, duration:.25, ease:'power2.inOut', onComplete: () => {
+        celebrateEl.classList.remove('show');
+        celebrateEl.style.opacity = '';
+        if (fwInterval) { clearInterval(fwInterval); fwInterval = null; }
+        if (fwTicker) { gsap.ticker.remove(fwTicker); fwTicker = null; }
+        const fx = document.getElementById('fx');
+        if (fx) fx.getContext('2d').clearRect(0,0,fx.width,fx.height);
+      }});
+    }
+
+    // ====== Init ======
+    buildWheel();
+    renderChips();
+  </script>
+
+  <!-- Celebration Overlay -->
+  <div id="celebrate" class="celebrate" aria-hidden="true">
+    <canvas id="fx"></canvas>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popText">
+      <div class="pop-title">오늘의 점심</div>
+      <div class="pop-result" id="popText">김치찌개</div>
+      <div class="pop-cta">
+        <button id="againBtn">한 번 더!</button>
+        <button class="ghost" id="closePop">닫기</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
