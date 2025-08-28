@@ -23,7 +23,17 @@
   <meta name="twitter:image" content="점심메뉴 이미지.png" />
   <title>점심 메뉴 룰렛</title>
   <!-- GSAP -->
-  <script src="https://github.dev/poliyoon/lunchmenu/"></script>
+  <!-- GSAP (공식 CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<!-- 로딩 실패 시 백업 CDN로 대체 -->
+<script>
+  if (!window.gsap) {
+    var s = document.createElement('script');
+    s.src = 'https://unpkg.com/gsap@3/dist/gsap.min.js';
+    document.head.appendChild(s);
+  }
+</script>
+
   <style>
     :root {
       --bg: #0f1221;
