@@ -1,5 +1,5 @@
-/* lunchmune PWA Service Worker */
-const CACHE_NAME = "lunchmune-static-v2"; // 버전 올려 캐시 무효화
+/* lunchmenu PWA Service Worker */
+const CACHE_NAME = "lunchmenu-static-v2";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -9,9 +9,7 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
 });
 
 self.addEventListener("activate", (event) => {
@@ -45,10 +43,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        return cached || fetch(req).then((resp) => {
+      caches.match(req).then(cached => {
+        return cached || fetch(req).then(resp => {
           const clone = resp.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, clone));
+          caches.open(CACHE_NAME).then(c => c.put(req, clone));
           return resp;
         });
       })
